@@ -1,7 +1,7 @@
 package ru.lvrmmm.hotelbookingservice.room.entity;
 
 public enum RoomComfortLevel {
-    STANDART,
+    STANDARD,
     SUPERIOR,
     DELUXE,
     JUNIOR_SUITE,
