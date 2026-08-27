@@ -11,7 +11,7 @@ import ru.lvrmmm.hotelbookingservice.room.entity.Room;
 public interface RoomRepository extends JpaRepository<Room, Long> {
 
     @Modifying
-    @Query("DELETE FROM Room WHERE r.id = :id")
-    public int deleteRoomById(@Param("id")Long id);
+    @Query("DELETE FROM Room r WHERE r.id = :id")
+    int deleteRoomById(@Param("id")Long id);
 
 }

@@ -1,5 +1,6 @@
 package ru.lvrmmm.hotelbookingservice.room.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/rooms")
+@Tag(name = "Rooms", description = "API для управления гостиничными номерами")
 public class RoomController {
 
     private final RoomService roomService;
