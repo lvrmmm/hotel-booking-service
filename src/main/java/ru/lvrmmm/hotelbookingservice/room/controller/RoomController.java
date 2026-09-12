@@ -6,9 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import ru.lvrmmm.hotelbookingservice.room.dto.CreateRoomRequest;
-import ru.lvrmmm.hotelbookingservice.room.dto.RoomResponse;
-import ru.lvrmmm.hotelbookingservice.room.dto.UpdateRoomRequest;
+import ru.lvrmmm.hotelbookingservice.room.dto.request.CreateRoomRequest;
+import ru.lvrmmm.hotelbookingservice.room.dto.response.RoomResponse;
+import ru.lvrmmm.hotelbookingservice.room.dto.request.UpdateRoomRequest;
 import ru.lvrmmm.hotelbookingservice.room.service.RoomService;
 
 import java.util.List;

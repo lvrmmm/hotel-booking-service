@@ -1,4 +1,4 @@
-package ru.lvrmmm.hotelbookingservice.room.dto;
+package ru.lvrmmm.hotelbookingservice.room.dto.response;
 
 import ru.lvrmmm.hotelbookingservice.room.entity.Room;
 import ru.lvrmmm.hotelbookingservice.room.entity.RoomComfortLevel;

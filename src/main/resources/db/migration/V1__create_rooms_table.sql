@@ -6,4 +6,4 @@ CREATE TABLE rooms (
     comfort_level VARCHAR(30) NOT NULL,
     capacity INTEGER NOT NULL,
     active BOOLEAN NOT NULL
-);
+)
