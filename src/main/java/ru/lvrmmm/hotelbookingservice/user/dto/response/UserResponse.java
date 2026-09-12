@@ -1,6 +1,7 @@
 package ru.lvrmmm.hotelbookingservice.user.dto.response;
 
 import ru.lvrmmm.hotelbookingservice.user.entity.User;
+import ru.lvrmmm.hotelbookingservice.user.entity.UserRole;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -12,7 +13,8 @@ public record UserResponse(
         String firstName,
         String middleName,
         String lastName,
-        LocalDate dateOfBirth
+        LocalDate dateOfBirth,
+        UserRole role
 ){
     public static UserResponse from(User user){
         return new UserResponse(user.getId(),
@@ -21,7 +23,8 @@ public record UserResponse(
                 user.getFirstName(),
                 user.getMiddleName(),
                 user.getLastName(),
-                user.getDateOfBirth()
+                user.getDateOfBirth(),
+                user.getRole()
         );
     }
 }

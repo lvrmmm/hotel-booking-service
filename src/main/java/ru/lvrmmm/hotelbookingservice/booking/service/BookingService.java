@@ -67,11 +67,12 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true)
-    public BookingResponse getBookingById(UUID id, UUID userId) {
+    public BookingResponse getBookingById(UUID id, UUID userId, boolean isStaff) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new BookingNotFoundException(id));
 
-        if (!booking.getUser().getId().equals(userId)) {
+        boolean isOwner = booking.getUser().getId().equals(userId);
+        if (!isOwner && !isStaff) {
             throw new BookingNotFoundException(id);
         }
 
@@ -86,11 +87,12 @@ public class BookingService {
     }
 
     @Transactional
-    public BookingResponse cancelBooking(UUID id, UUID userId) {
+    public BookingResponse cancelBooking(UUID id, UUID userId, boolean isStaff) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new BookingNotFoundException(id));
 
-        if (!booking.getUser().getId().equals(userId)) {
+        boolean isOwner = booking.getUser().getId().equals(userId);
+        if (!isOwner && !isStaff) {
             throw new BookingConflictException("You can only cancel your own bookings");
         }
 
@@ -105,6 +107,13 @@ public class BookingService {
         Booking updated = bookingRepository.save(booking);
 
         return BookingResponse.from(updated);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookingResponse> getAllBookings() {
+        return bookingRepository.findAll().stream()
+                .map(BookingResponse::from)
+                .toList();
     }
 
     private BigDecimal calculateTotalPrice(Room room, LocalDate checkIn, LocalDate checkOut) {

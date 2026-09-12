@@ -166,7 +166,7 @@ class BookingServiceTest {
 
         when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
 
-        BookingResponse response = bookingService.getBookingById(bookingId, userId);
+        BookingResponse response = bookingService.getBookingById(bookingId, userId, false);
 
         assertThat(response.id()).isEqualTo(bookingId);
         assertThat(response.userId()).isEqualTo(userId);
@@ -185,7 +185,7 @@ class BookingServiceTest {
 
         when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
 
-        assertThatThrownBy(() -> bookingService.getBookingById(bookingId, userId))
+        assertThatThrownBy(() -> bookingService.getBookingById(bookingId, userId, false))
                 .isInstanceOf(BookingNotFoundException.class);
     }
 
@@ -200,7 +200,7 @@ class BookingServiceTest {
         List<BookingResponse> result = bookingService.getBookingsByUser(userId);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).userId()).isEqualTo(userId);
+        assertThat(result.getFirst().userId()).isEqualTo(userId);
     }
 
     @Test
@@ -213,7 +213,7 @@ class BookingServiceTest {
         when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
         when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        BookingResponse response = bookingService.cancelBooking(bookingId, userId);
+        BookingResponse response = bookingService.cancelBooking(bookingId, userId, false);
 
         assertThat(response.bookingStatus()).isEqualTo(BookingStatus.CANCELLED);
     }
@@ -231,7 +231,7 @@ class BookingServiceTest {
 
         when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
 
-        assertThatThrownBy(() -> bookingService.cancelBooking(bookingId, userId))
+        assertThatThrownBy(() -> bookingService.cancelBooking(bookingId, userId, false))
                 .isInstanceOf(BookingConflictException.class);
 
         verify(bookingRepository, never()).save(any(Booking.class));
@@ -247,7 +247,7 @@ class BookingServiceTest {
 
         when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
 
-        assertThatThrownBy(() -> bookingService.cancelBooking(bookingId, userId))
+        assertThatThrownBy(() -> bookingService.cancelBooking(bookingId, userId, false))
                 .isInstanceOf(BookingConflictException.class)
                 .hasMessageContaining("CANCELLED");
 

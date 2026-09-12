@@ -3,6 +3,7 @@ package ru.lvrmmm.hotelbookingservice.user.service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.lvrmmm.hotelbookingservice.user.entity.UserRole;
 import ru.lvrmmm.hotelbookingservice.user.exception.UserAlreadyExistsException;
 import ru.lvrmmm.hotelbookingservice.user.exception.UserNotFoundException;
 import ru.lvrmmm.hotelbookingservice.user.dto.request.UserCreateRequest;
@@ -10,6 +11,7 @@ import ru.lvrmmm.hotelbookingservice.user.dto.response.UserResponse;
 import ru.lvrmmm.hotelbookingservice.user.entity.User;
 import ru.lvrmmm.hotelbookingservice.user.repository.UserRepository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -41,9 +43,26 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public UserResponse findUserById(UUID id){
+    public UserResponse getUserById(UUID id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new UserNotFoundException(id));
         return UserResponse.from(user);
     }
+
+    @Transactional(readOnly = true)
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(UserResponse::from)
+                .toList();
+    }
+
+    @Transactional
+    public UserResponse updateUserRole(UUID id, UserRole newRole) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new UserNotFoundException(id));
+        user.setRole(newRole);
+        User updated = userRepository.save(user);
+        return UserResponse.from(updated);
+    }
+
 }

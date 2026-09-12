@@ -4,6 +4,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import ru.lvrmmm.hotelbookingservice.user.entity.User;
+import ru.lvrmmm.hotelbookingservice.user.entity.UserRole;
 
 import java.util.Collection;
 import java.util.List;
@@ -37,6 +38,11 @@ public class UserDetailsImpl implements UserDetails {
 
     public User getUser(){
         return user;
+    }
+
+    public boolean isStaff() {
+        UserRole role = user.getRole();
+        return role == UserRole.ADMIN || role == UserRole.MANAGER;
     }
 
 }

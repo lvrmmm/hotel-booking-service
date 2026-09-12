@@ -128,7 +128,7 @@ class UserServiceTest {
         UUID userId = sampleUser.getId();
         when(userRepository.findById(userId)).thenReturn(Optional.of(sampleUser));
 
-        UserResponse response = userService.findUserById(userId);
+        UserResponse response = userService.getUserById(userId);
 
         assertThat(response).isNotNull();
         assertThat(response.id()).isEqualTo(userId);
@@ -142,7 +142,7 @@ class UserServiceTest {
         UUID userId = UUID.randomUUID();
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> userService.findUserById(userId))
+        assertThatThrownBy(() -> userService.getUserById(userId))
                 .isInstanceOf(UserNotFoundException.class)
                 .hasMessageContaining(userId.toString());
     }

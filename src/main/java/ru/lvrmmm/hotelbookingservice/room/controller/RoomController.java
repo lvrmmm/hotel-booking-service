@@ -1,11 +1,14 @@
 package ru.lvrmmm.hotelbookingservice.room.controller;
 
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import ru.lvrmmm.hotelbookingservice.common.config.OpenApiConfig;
 import ru.lvrmmm.hotelbookingservice.room.dto.request.CreateRoomRequest;
 import ru.lvrmmm.hotelbookingservice.room.dto.response.RoomResponse;
 import ru.lvrmmm.hotelbookingservice.room.dto.request.UpdateRoomRequest;
@@ -25,13 +28,17 @@ public class RoomController {
         this.roomService = roomService;
     }
 
-    @PostMapping()
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PostMapping
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     public ResponseEntity<RoomResponse> createRoom(@Valid @RequestBody CreateRoomRequest request){
         RoomResponse response = roomService.createRoom(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @PatchMapping("/{id}")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     public ResponseEntity<RoomResponse> updateRoom(@PathVariable Long id, @Valid @RequestBody UpdateRoomRequest request){
         RoomResponse response =  roomService.updateRoom(id, request);
         return ResponseEntity.ok(response);
@@ -49,7 +56,9 @@ public class RoomController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @DeleteMapping("/{id}")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_SCHEME)
     public ResponseEntity<Void> deleteRoom(@PathVariable Long id){
         roomService.deleteRoom(id);
         return ResponseEntity.noContent().build();
