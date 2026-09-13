@@ -16,6 +16,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     List<Booking> findByUser_Id(UUID userId);
 
+    List<Booking> findByRoomIdAndBookingStatusIn(Long roomId, List<BookingStatus> statuses);
 
     @Query("""
             SELECT b FROM Booking b

@@ -116,6 +116,37 @@ public class BookingService {
                 .toList();
     }
 
+    @Transactional
+    public BookingResponse completeBooking(UUID id) {
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new BookingNotFoundException(id));
+
+        if (booking.getBookingStatus() != BookingStatus.CONFIRMED) {
+            throw new BookingConflictException(
+                    "Only confirmed bookings can be marked as completed, current status: "
+                            + booking.getBookingStatus()
+            );
+        }
+
+        booking.setBookingStatus(BookingStatus.COMPLETED);
+        return BookingResponse.from(bookingRepository.save(booking));
+    }
+
+    @Transactional
+    public BookingResponse confirmBooking(UUID id) {
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> new BookingNotFoundException(id));
+
+        if (booking.getBookingStatus() != BookingStatus.PENDING) {
+            throw new BookingConflictException(
+                    "Only pending bookings can be confirmed, current status: " + booking.getBookingStatus()
+            );
+        }
+
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        return BookingResponse.from(bookingRepository.save(booking));
+    }
+
     private BigDecimal calculateTotalPrice(Room room, LocalDate checkIn, LocalDate checkOut) {
         long nights = ChronoUnit.DAYS.between(checkIn, checkOut);
         return room.getPricePerNight().multiply(BigDecimal.valueOf(nights));

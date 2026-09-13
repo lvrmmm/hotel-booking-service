@@ -8,12 +8,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import ru.lvrmmm.hotelbookingservice.availability.service.RoomAvailabilityService;
+import ru.lvrmmm.hotelbookingservice.booking.dto.response.OccupiedRangeResponse;
 import ru.lvrmmm.hotelbookingservice.common.config.OpenApiConfig;
 import ru.lvrmmm.hotelbookingservice.room.dto.request.CreateRoomRequest;
 import ru.lvrmmm.hotelbookingservice.room.dto.response.RoomResponse;
 import ru.lvrmmm.hotelbookingservice.room.dto.request.UpdateRoomRequest;
 import ru.lvrmmm.hotelbookingservice.room.service.RoomService;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -22,10 +25,11 @@ import java.util.List;
 public class RoomController {
 
     private final RoomService roomService;
+    private final RoomAvailabilityService roomAvailabilityService;
 
-    @Autowired
-    public RoomController(RoomService roomService) {
+    public RoomController(RoomService roomService, RoomAvailabilityService roomAvailabilityService) {
         this.roomService = roomService;
+        this.roomAvailabilityService = roomAvailabilityService;
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
@@ -62,5 +66,31 @@ public class RoomController {
     public ResponseEntity<Void> deleteRoom(@PathVariable Long id){
         roomService.deleteRoom(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PatchMapping("/{id}/deactivate")
+    public ResponseEntity<RoomResponse> deactivateRoom(@PathVariable Long id) {
+        return ResponseEntity.ok(roomService.deactivateRoom(id));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PatchMapping("/{id}/activate")
+    public ResponseEntity<RoomResponse> activateRoom(@PathVariable Long id) {
+        return ResponseEntity.ok(roomService.activateRoom(id));
+    }
+
+    @GetMapping("/available")
+    public ResponseEntity<List<RoomResponse>> findAvailableRooms(
+            @RequestParam LocalDate checkIn,
+            @RequestParam LocalDate checkOut,
+            @RequestParam(required = false) Integer capacity
+    ) {
+        return ResponseEntity.ok(roomService.findAvailableRooms(checkIn, checkOut, capacity));
+    }
+
+    @GetMapping("/{id}/occupied-dates")
+    public ResponseEntity<List<OccupiedRangeResponse>> getOccupiedDates(@PathVariable Long id) {
+        return ResponseEntity.ok(roomAvailabilityService.getOccupiedDates(id));
     }
 }

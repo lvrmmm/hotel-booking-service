@@ -76,4 +76,16 @@ public class BookingController {
         return ResponseEntity.ok(response);
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PatchMapping("/{id}/complete")
+    public ResponseEntity<BookingResponse> completeBooking(@PathVariable UUID id) {
+        return ResponseEntity.ok(bookingService.completeBooking(id));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PatchMapping("/{id}/confirm")
+    public ResponseEntity<BookingResponse> confirmBooking(@PathVariable UUID id) {
+        return ResponseEntity.ok(bookingService.confirmBooking(id));
+    }
+
 }

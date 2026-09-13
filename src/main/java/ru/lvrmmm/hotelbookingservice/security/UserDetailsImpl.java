@@ -45,4 +45,9 @@ public class UserDetailsImpl implements UserDetails {
         return role == UserRole.ADMIN || role == UserRole.MANAGER;
     }
 
+    @Override
+    public boolean isEnabled() {
+        return user.isEnabled();
+    }
+
 }
