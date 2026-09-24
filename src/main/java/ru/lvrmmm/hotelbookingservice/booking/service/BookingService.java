@@ -1,5 +1,7 @@
 package ru.lvrmmm.hotelbookingservice.booking.service;
 
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.lvrmmm.hotelbookingservice.booking.dto.request.CreateBookingRequest;
@@ -22,6 +24,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class BookingService {
@@ -32,19 +35,44 @@ public class BookingService {
     private final UserRepository userRepository;
     private final RoomRepository roomRepository;
     private final BookingRepository bookingRepository;
+    private final RedissonClient redissonClient;
 
-    public BookingService(UserRepository userRepository, RoomRepository roomRepository, BookingRepository bookingRepository) {
+    public BookingService(UserRepository userRepository, RoomRepository roomRepository, BookingRepository bookingRepository, RedissonClient redissonClient) {
         this.userRepository = userRepository;
         this.roomRepository = roomRepository;
         this.bookingRepository = bookingRepository;
+        this.redissonClient = redissonClient;
     }
 
-    @Transactional
     public BookingResponse createBooking(CreateBookingRequest request, UUID userId) {
         if (!request.checkOut().isAfter(request.checkIn())) {
             throw new InvalidBookingDatesException("Check-out date must be after check-in date");
         }
 
+        RLock lock = redissonClient.getLock("room-lock:" + request.roomId());
+
+        boolean acquired;
+
+        try{
+            acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
+        }catch (InterruptedException ex){
+            Thread.currentThread().interrupt();
+            throw new BookingConflictException("Booking was interrupted, please try again");
+        }
+
+        if (!acquired){
+            throw new BookingConflictException("Room is currently being booked by someone else, please try again");
+        }
+
+        try{
+            return createBookingInternal(request, userId);
+        }finally{
+            lock.unlock();
+        }
+    }
+
+    @Transactional
+    protected BookingResponse createBookingInternal(CreateBookingRequest request, UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         Room room = roomRepository.findById(request.roomId())

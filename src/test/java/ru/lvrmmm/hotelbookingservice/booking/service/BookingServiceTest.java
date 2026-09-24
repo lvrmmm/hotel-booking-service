@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RedissonClient;
 import ru.lvrmmm.hotelbookingservice.booking.dto.request.CreateBookingRequest;
 import ru.lvrmmm.hotelbookingservice.booking.dto.response.BookingResponse;
 import ru.lvrmmm.hotelbookingservice.booking.entity.Booking;
@@ -46,6 +47,9 @@ class BookingServiceTest {
     @Mock
     private BookingRepository bookingRepository;
 
+    @Mock
+    private RedissonClient redissonClient;
+
     private BookingService bookingService;
 
     private User existingUser;
@@ -54,7 +58,7 @@ class BookingServiceTest {
 
     @BeforeEach
     void setUp() {
-        bookingService = new BookingService(userRepository, roomRepository, bookingRepository);
+        bookingService = new BookingService(userRepository, roomRepository, bookingRepository, redissonClient);
 
         userId = UUID.randomUUID();
 

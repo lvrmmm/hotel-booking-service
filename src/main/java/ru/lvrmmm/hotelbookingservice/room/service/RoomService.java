@@ -1,10 +1,10 @@
 package ru.lvrmmm.hotelbookingservice.room.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.lvrmmm.hotelbookingservice.booking.dto.response.OccupiedRangeResponse;
-import ru.lvrmmm.hotelbookingservice.booking.entity.Booking;
 import ru.lvrmmm.hotelbookingservice.booking.entity.BookingStatus;
 import ru.lvrmmm.hotelbookingservice.room.dto.request.CreateRoomRequest;
 import ru.lvrmmm.hotelbookingservice.room.dto.response.RoomResponse;
@@ -15,7 +15,6 @@ import ru.lvrmmm.hotelbookingservice.room.exception.RoomNotFoundException;
 import ru.lvrmmm.hotelbookingservice.room.repository.RoomRepository;
 
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.List;
 
 
@@ -32,6 +31,7 @@ public class RoomService {
         this.roomRepository = roomRepository;
     }
 
+    @CacheEvict(value = "rooms", allEntries = true)
     @Transactional
     public RoomResponse createRoom(CreateRoomRequest request){
         Room room = request.toEntity();
@@ -39,6 +39,7 @@ public class RoomService {
         return RoomResponse.from(saved);
     }
 
+    @CacheEvict(value = "rooms", allEntries = true)
     @Transactional
     public RoomResponse updateRoom(Long id, UpdateRoomRequest request){
         Room room = roomRepository.findById(id)
@@ -65,6 +66,7 @@ public class RoomService {
         return RoomResponse.from(updatedRoom);
     }
 
+    @Cacheable(value = "rooms", key = "#id")
     @Transactional(readOnly = true)
     public RoomResponse getRoomById(Long id){
         Room room = roomRepository.findById(id)
@@ -72,6 +74,7 @@ public class RoomService {
         return RoomResponse.from(room);
     }
 
+    @Cacheable(value = "rooms", key = "'all'")
     @Transactional(readOnly = true)
     public List<RoomResponse> getAllRooms(){
         return roomRepository.findAll().stream()
@@ -79,6 +82,7 @@ public class RoomService {
                 .toList();
     }
 
+    @CacheEvict(value = "rooms", allEntries = true)
     @Transactional
     public void deleteRoom(Long id){
         int deletedCount = roomRepository.deleteRoomById(id);
@@ -87,6 +91,7 @@ public class RoomService {
         }
     }
 
+    @CacheEvict(value = "rooms", allEntries = true)
     @Transactional
     public RoomResponse deactivateRoom(Long id) {
         Room room = roomRepository.findById(id)
@@ -95,6 +100,7 @@ public class RoomService {
         return RoomResponse.from(roomRepository.save(room));
     }
 
+    @CacheEvict(value = "rooms", allEntries = true)
     @Transactional
     public RoomResponse activateRoom(Long id) {
         Room room = roomRepository.findById(id)
