@@ -2,6 +2,8 @@ package ru.lvrmmm.hotelbookingservice.booking.service;
 
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.lvrmmm.hotelbookingservice.booking.dto.request.CreateBookingRequest;
@@ -138,10 +140,9 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true)
-    public List<BookingResponse> getAllBookings() {
-        return bookingRepository.findAll().stream()
-                .map(BookingResponse::from)
-                .toList();
+    public Page<BookingResponse> getAllBookings(Pageable pageable) {
+        return bookingRepository.findAll(pageable)
+                .map(BookingResponse::from);
     }
 
     @Transactional

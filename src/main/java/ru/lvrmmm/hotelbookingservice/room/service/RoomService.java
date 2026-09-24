@@ -3,6 +3,8 @@ package ru.lvrmmm.hotelbookingservice.room.service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.lvrmmm.hotelbookingservice.booking.entity.BookingStatus;
@@ -74,12 +76,11 @@ public class RoomService {
         return RoomResponse.from(room);
     }
 
-    @Cacheable(value = "rooms", key = "'all'")
+    @Cacheable(value = "rooms", key = "'all:' + #pageable.pageNumber + ':' + #pageable.pageSize + ':' + #pageable.sort")
     @Transactional(readOnly = true)
-    public List<RoomResponse> getAllRooms(){
-        return roomRepository.findAll().stream()
-                .map(RoomResponse::from)
-                .toList();
+    public Page<RoomResponse> getAllRooms(Pageable pageable) {
+        return roomRepository.findAll(pageable)
+                .map(RoomResponse::from);
     }
 
     @CacheEvict(value = "rooms", allEntries = true)

@@ -3,6 +3,9 @@ package ru.lvrmmm.hotelbookingservice.user.controller;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,7 +18,6 @@ import ru.lvrmmm.hotelbookingservice.user.dto.request.UpdateUserRoleRequest;
 import ru.lvrmmm.hotelbookingservice.user.dto.response.UserResponse;
 import ru.lvrmmm.hotelbookingservice.user.service.UserService;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -30,11 +32,18 @@ public class UserController {
         this.userService = userService;
     }
 
-    @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<UserResponse>> getAllUsers(){
-        return ResponseEntity.ok(userService.getAllUsers());
+    @GetMapping
+    public ResponseEntity<Page<UserResponse>> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "username") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction
+    ) {
+        Sort sort = Sort.by(Sort.Direction.fromString(direction), sortBy);
+        return ResponseEntity.ok(userService.getAllUsers(PageRequest.of(page, size, sort)));
     }
+
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")

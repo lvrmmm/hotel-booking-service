@@ -4,6 +4,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -55,9 +59,15 @@ public class RoomController {
     }
 
     @GetMapping
-    public ResponseEntity<List<RoomResponse>> getAllRooms(){
-        List<RoomResponse> response = roomService.getAllRooms();
-        return ResponseEntity.ok(response);
+    public ResponseEntity<Page<RoomResponse>> getAllRooms(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "roomNumber") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction
+    ) {
+        Sort sort = Sort.by(Sort.Direction.fromString(direction), sortBy);
+        Pageable pageable = PageRequest.of(page, size, sort);
+        return ResponseEntity.ok(roomService.getAllRooms(pageable));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
