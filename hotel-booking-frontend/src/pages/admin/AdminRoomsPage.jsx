@@ -3,7 +3,7 @@ import AdminLayout from "../../components/AdminLayout";
 import RoomFormModal from "../../components/RoomFormModal";
 import Pagination from "../../components/Pagination";
 import Toast from "../../components/Toast";
-import { api, ApiError } from "../../api/client";
+import { api, ApiError, collectionFrom, pageInfoFrom } from "../../api/client";
 import { OCCUPANCY_LABELS, COMFORT_LABELS, formatPrice } from "../../utils/roomVisuals";
 
 export default function AdminRoomsPage() {
@@ -31,8 +31,8 @@ export default function AdminRoomsPage() {
     api
       .get(`/rooms?page=${pageNumber}&size=10&sortBy=roomNumber&direction=asc`, { auth: false })
       .then((data) => {
-        setRooms(data.content);
-        setPageInfo({ number: data.number, totalPages: data.totalPages });
+        setRooms(collectionFrom(data));
+        setPageInfo(pageInfoFrom(data));
       })
       .catch(() => setError("Не удалось загрузить номера."))
       .finally(() => setLoading(false));

@@ -1,142 +1,209 @@
 # Meridian — Hotel Booking Service
 
-Учебный pet-проект: сервис бронирования отеля с REST API на Spring Boot и React-фронтендом.
-Полный цикл: аутентификация по JWT, ролевая авторизация, бизнес-логика бронирования
-с проверкой пересечения дат, и панель управления для персонала.
+Учебный full-stack проект системы управления бронированием отеля. Проект демонстрирует разработку REST API на Spring Boot, работу с PostgreSQL и Redis, JWT-аутентификацию, ролевую модель доступа, миграции базы данных и интеграционное тестирование через Testcontainers.
 
-## Стек
+## Возможности
 
-**Backend:** Java 21, Spring Boot 4, Spring Security, Spring Data JPA, PostgreSQL,
-Flyway, JJWT, Maven, JUnit 5 + Mockito
+### Для гостя и пользователя
 
-**Frontend:** React, Vite, React Router
+- регистрация и вход по JWT;
+- просмотр каталога и карточек номеров;
+- поиск свободных номеров по датам;
+- создание бронирования с автоматическим расчётом стоимости;
+- просмотр и отмена собственных бронирований;
+- просмотр и редактирование профиля, смена пароля.
 
-**Инфраструктура:** Docker, Docker Compose, nginx
+### Для персонала
 
-## Архитектура
+- создание и редактирование номеров;
+- активация, деактивация и удаление номеров;
+- просмотр бронирований с пагинацией и фильтрацией по статусу;
+- подтверждение, отмена и завершение бронирований;
+- управление пользователями, ролями и блокировкой учётных записей для `ADMIN`.
 
-Монолит, организованный по фичам (package by feature), а не по слоям:
+Администратора нельзя заблокировать или понизить в роли — в том числе другого администратора или самого себя.
 
-```
+## Технологии
+
+**Backend:** Java 21, Spring Boot 4.1, Spring Web MVC, Spring Security, Spring Data JPA, Hibernate, PostgreSQL, Flyway, Redis, Redisson, JJWT, OpenAPI/Swagger, Maven.
+
+**Frontend:** React 18, Vite, React Router, CSS.
+
+**Тестирование:** JUnit 5, Mockito, AssertJ, MockMvc, Spring Boot Test, Testcontainers (PostgreSQL и Redis).
+
+**Инфраструктура:** Docker, Docker Compose, nginx.
+
+## Архитектура backend
+
+Backend организован по предметным областям (`package by feature`):
+
+```text
 ru.lvrmmm.hotelbookingservice
-├── room/           — номера: entity, dto, repository, service, controller, exception
-├── user/           — пользователи и профиль
-├── booking/        — бронирования, проверка пересечения дат
-├── availability/   — поиск доступности (комбинирует room + booking)
-├── security/       — JWT, UserDetails, фильтр аутентификации
-└── common/         — сквозная инфраструктура: обработка ошибок, конфигурация
+├── auth/           — регистрация и аутентификация
+├── room/           — номера, каталог и управление номерным фондом
+├── booking/        — создание и жизненный цикл бронирований
+├── availability/   — поиск свободных номеров
+├── user/           — профиль, роли и блокировка пользователей
+├── security/       — JWT-фильтр и интеграция со Spring Security
+└── common/         — конфигурация и единая обработка ошибок
 ```
 
-## Функциональность
+Основные сущности:
 
-**Гости (роль USER):**
-- Регистрация, вход, управление своим профилем и паролем
-- Просмотр каталога номеров, поиск свободных номеров по датам
-- Создание бронирования с автоматическим расчётом стоимости
-- Просмотр и отмена своих бронирований
+- `Room` — номер, категория комфорта, тип размещения, вместимость и цена;
+- `User` — пользователь с ролью `USER`, `MANAGER` или `ADMIN`;
+- `Booking` — бронь со сроком проживания, стоимостью и статусом.
 
-**Персонал (ADMIN / MANAGER):**
-- Управление номерным фондом: создание, редактирование, постановка на стоп, удаление
-- Просмотр всех бронирований, подтверждение, отмена, отметка о завершении
-- (только ADMIN) Управление пользователями: назначение ролей, блокировка
+Схема PostgreSQL создаётся и обновляется миграциями из `src/main/resources/db/migration`.
 
-Администратора нельзя понизить в роли или заблокировать — ни другим админом,
-ни самим собой.
+## Важные технические решения
 
-## Модель данных
+- stateless-аутентификация через JWT;
+- хеширование паролей с BCrypt;
+- ролевая авторизация через Spring Security и `@PreAuthorize`;
+- проверка владения бронированием на уровне бизнес-логики;
+- проверка пересечения дат перед созданием бронирования;
+- распределённая блокировка Redisson для защиты от одновременного бронирования одного номера;
+- кеширование каталога номеров в Redis;
+- пагинация и сортировка списков номеров, пользователей и бронирований;
+- валидация структуры БД через Flyway и `ddl-auto=validate`;
+- единый формат ошибок API с HTTP-статусом, сообщением и ошибками полей.
 
-- **Room** — номер: тип размещения, категория комфорта, вместимость, цена
-- **User** — пользователь: роль (USER/MANAGER/ADMIN), статус блокировки
-- **Booking** — бронь: даты, статус (PENDING → CONFIRMED → COMPLETED, либо CANCELLED),
-  рассчитанная стоимость
+## Запуск через Docker Compose
 
-Полная схема — в Flyway-миграциях (`src/main/resources/db/migration`).
+Понадобятся Docker и Docker Compose.
 
-## Безопасность
+### 1. Создать `.env`
 
-- Аутентификация без хранения сессий на сервере (stateless), через JWT
-- Пароли хешируются через BCrypt, никогда не хранятся в открытом виде
-- Ролевая авторизация на уровне эндпоинтов (`@PreAuthorize`) и владения записями
-  (пользователь видит и отменяет только свои брони, если не является персоналом)
-- Единообразный формат ошибок API (`status`, `message`, `timestamp`, `fieldErrors`)
-- Блокировка пользователя проверяется на каждом запросе, а не только при входе —
-  выданный ранее токен немедленно теряет силу после блокировки
+В корне `HotelBookingService` создай файл `.env`:
 
-## Запуск
-
-Нужен Docker и Docker Compose.
-
-### 1. Настрой секреты
-
-Создай `.env` в корне проекта:
-
-```
+```dotenv
 POSTGRES_DB=hotel_booking
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=<свой пароль>
-JWT_SECRET=<сгенерируй через: openssl rand -base64 32>
+POSTGRES_PASSWORD=change_me
+JWT_SECRET=replace_with_a_secure_base64_secret
 ```
 
-### 2. Подними всё одной командой
+Секрет можно сгенерировать командой:
 
 ```bash
-docker-compose up --build
+openssl rand -base64 64
 ```
 
-Поднимутся три сервиса: PostgreSQL, backend (Spring Boot), frontend (React, раздаётся через nginx).
+Файл `.env` содержит секреты и не должен попадать в Git.
 
-- Фронтенд: http://localhost:5173
-- API напрямую: http://localhost:8080/api/v1
-- Swagger UI: http://localhost:8080/swagger-ui.html
+### 2. Запустить приложение
 
-### 3. Тестовый администратор
-
-Создаётся автоматически через Flyway-миграцию:
-
+```bash
+docker compose up --build
 ```
+
+Будут запущены четыре сервиса: PostgreSQL, Redis, Spring Boot backend и React frontend под nginx.
+
+| Сервис | Адрес |
+|---|---|
+| Frontend | http://localhost:5173 |
+| REST API | http://localhost:8080/api/v1 |
+| Swagger UI | http://localhost:8080/swagger-ui.html |
+| OpenAPI JSON | http://localhost:8080/v3/api-docs |
+
+Остановка:
+
+```bash
+docker compose down
+```
+
+Чтобы также удалить локальный том PostgreSQL:
+
+```bash
+docker compose down -v
+```
+
+### Тестовый администратор
+
+Учётная запись создаётся миграцией Flyway:
+
+```text
 username: admin
 password: Admin123!
 ```
 
-## Локальная разработка без Docker
+## Локальная разработка
 
-Если нужно запускать backend напрямую из IDE (например, для отладки):
+### Backend
 
-1. Подними только базу: `docker-compose up postgres`
-2. Задай переменные окружения в конфигурации запуска IDE: `DB_PASSWORD`, `JWT_SECRET`
-   (значения — как в `.env`)
-3. Запусти `HotelBookingServiceApplication`
+Запусти PostgreSQL и Redis:
 
-Для фронтенда — `cd hotel-booking-frontend && npm install && npm run dev`
-(подробности и обязательная настройка CORS — в `hotel-booking-frontend/README.md`).
+```bash
+docker compose up -d postgres redis
+```
+
+Задай переменные окружения:
+
+```text
+DB_NAME=hotel_booking
+DB_USERNAME=postgres
+DB_PASSWORD=<пароль из .env>
+REDIS_HOST=localhost
+REDIS_PORT=6379
+JWT_SECRET=<секрет из .env>
+```
+
+После этого запусти `HotelBookingServiceApplication` из IDE либо выполни:
+
+```bash
+mvn spring-boot:run
+```
+
+### Frontend
+
+```bash
+cd hotel-booking-frontend
+npm install
+npm run dev
+```
+
+Frontend обращается к API по адресу `http://localhost:8080/api/v1`. Backend разрешает CORS-запросы с `http://localhost:5173`.
 
 ## Тесты
+
+Полный набор запускается из каталога `HotelBookingService`:
 
 ```bash
 mvn test
 ```
 
-Юнит-тесты сервисного слоя (`RoomService`, `UserService`, `BookingService`) через
-JUnit 5 и Mockito — без БД, полностью изолированные.
+Для интеграционных тестов должен работать Docker. Testcontainers самостоятельно поднимает изолированные PostgreSQL 16 и Redis 7; локальные тестовые базы создавать не требуется.
 
-## Что дальше (осознанно отложено)
+В проекте 60 тестов:
 
-- Redis + Redisson — распределённая блокировка против race condition при
-  одновременном бронировании одной комнаты
-- Интеграционные тесты репозиториев (Testcontainers/H2) — проверка реальных
-  JPQL-запросов против настоящей БД
-- Пагинация для списков номеров/бронирований/пользователей
-- Refresh-токены (сейчас один access-токен на час)
-- CI (GitHub Actions)
+- unit-тесты сервисов номеров, пользователей, бронирований и доступности;
+- тесты авторизации, `UserDetailsService` и создания/валидации JWT;
+- интеграционные тесты JPA-запроса поиска свободных номеров;
+- MockMvc-тесты REST API и обработки некорректных параметров;
+- проверка применения миграций Flyway к настоящей PostgreSQL;
+- проверка запуска полного Spring-контекста с PostgreSQL и Redis.
+
+Тестовая инфраструктура находится в `src/test/java/ru/lvrmmm/hotelbookingservice/integration/AbstractIntegrationTest.java`.
 
 ## Структура репозитория
 
+```text
+HotelBookingService/
+├── src/main/java/                 — backend-код
+├── src/main/resources/            — конфигурация и Flyway-миграции
+├── src/test/java/                 — unit- и интеграционные тесты
+├── hotel-booking-frontend/        — React-приложение
+├── Dockerfile                     — образ backend
+├── docker-compose.yaml            — PostgreSQL, Redis, backend и frontend
+├── pom.xml                        — Maven-конфигурация
+└── README.md
 ```
-.
-├── src/                          — backend (Spring Boot)
-├── hotel-booking-frontend/       — frontend (React + Vite)
-├── docker-compose.yml
-├── Dockerfile                    — backend
-├── .env                          — секреты (не в git)
-└── pom.xml
-```
+
+## Возможные следующие шаги
+
+- refresh-токены и принудительный отзыв access-токенов;
+- end-to-end тесты пользовательских сценариев frontend;
+- CI-пайплайн с автоматическим запуском тестов и сборкой Docker-образов;
+- метрики и мониторинг через Spring Boot Actuator, Prometheus и Grafana;
+- стабильные DTO для пагинированных ответов вместо прямой сериализации `Page`.

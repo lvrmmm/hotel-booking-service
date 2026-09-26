@@ -8,6 +8,19 @@ class ApiError extends Error {
   }
 }
 
+export function collectionFrom(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.content)) return data.content;
+  return [];
+}
+
+export function pageInfoFrom(data) {
+  return {
+    number: Number.isInteger(data?.number) ? data.number : 0,
+    totalPages: Number.isInteger(data?.totalPages) ? Math.max(data.totalPages, 1) : 1,
+  };
+}
+
 async function request(path, { method = "GET", body, auth = true } = {}) {
   const headers = { "Content-Type": "application/json" };
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { api, ApiError } from "../api/client";
+import { api, ApiError, collectionFrom } from "../api/client";
 import { STATUS_LABELS, formatDate, formatPrice } from "../utils/roomVisuals";
 import Toast from "../components/Toast";
 
@@ -31,7 +31,7 @@ export default function MyBookingsPage() {
     setLoading(true);
     api
       .get("/bookings/my")
-      .then(setBookings)
+      .then((data) => setBookings(collectionFrom(data)))
       .catch(() => setError("Не удалось загрузить бронирования."))
       .finally(() => setLoading(false));
   }

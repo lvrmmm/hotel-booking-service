@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import ru.lvrmmm.hotelbookingservice.booking.dto.request.CreateBookingRequest;
 import ru.lvrmmm.hotelbookingservice.booking.dto.response.BookingResponse;
@@ -29,6 +30,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -50,6 +52,9 @@ class BookingServiceTest {
     @Mock
     private RedissonClient redissonClient;
 
+    @Mock
+    private RLock rLock;
+
     private BookingService bookingService;
 
     private User existingUser;
@@ -57,7 +62,7 @@ class BookingServiceTest {
     private UUID userId;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws InterruptedException {
         bookingService = new BookingService(userRepository, roomRepository, bookingRepository, redissonClient);
 
         userId = UUID.randomUUID();
@@ -69,7 +74,16 @@ class BookingServiceTest {
         existingRoom = new Room(101, BigDecimal.valueOf(100.00),
                 RoomOccupancyType.DOUBLE, RoomComfortLevel.STANDARD, 2, true);
         existingRoom.setId(1L);
+
+        // Redisson: любая блокировка захватывается успешно и сразу.
+        // Настроено здесь, а не в каждом тесте отдельно, потому что
+        // блокировка захватывается ДО проверки существования user/room —
+        // нужна даже для тестов, которые проверяют "не найдено"/"конфликт".
+        lenient().when(redissonClient.getLock(anyString())).thenReturn(rLock);
+        lenient().when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(true);
     }
+
+    // ---------- createBooking ----------
 
     @Test
     void createBooking_shouldCreateBooking_whenDatesAreValidAndRoomIsFree() {
@@ -96,6 +110,7 @@ class BookingServiceTest {
         assertThat(response.totalPrice()).isEqualByComparingTo(BigDecimal.valueOf(500.00));
 
         verify(bookingRepository, times(1)).save(any(Booking.class));
+        verify(rLock, times(1)).unlock();
     }
 
     @Test
@@ -107,7 +122,7 @@ class BookingServiceTest {
         assertThatThrownBy(() -> bookingService.createBooking(request, userId))
                 .isInstanceOf(InvalidBookingDatesException.class);
 
-        verifyNoInteractions(userRepository, roomRepository, bookingRepository);
+        verifyNoInteractions(userRepository, roomRepository, bookingRepository, redissonClient);
     }
 
     @Test
@@ -122,6 +137,7 @@ class BookingServiceTest {
                 .isInstanceOf(UserNotFoundException.class);
 
         verifyNoInteractions(roomRepository, bookingRepository);
+        verify(rLock, times(1)).unlock();
     }
 
     @Test
@@ -137,6 +153,7 @@ class BookingServiceTest {
                 .isInstanceOf(RoomNotFoundException.class);
 
         verifyNoInteractions(bookingRepository);
+        verify(rLock, times(1)).unlock();
     }
 
     @Test
@@ -159,7 +176,25 @@ class BookingServiceTest {
                 .hasMessageContaining("101");
 
         verify(bookingRepository, never()).save(any(Booking.class));
+        verify(rLock, times(1)).unlock();
     }
+
+    @Test
+    void createBooking_shouldThrowConflictException_whenLockNotAcquired() throws InterruptedException {
+        CreateBookingRequest request = new CreateBookingRequest(
+                1L, LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 15)
+        );
+
+        when(rLock.tryLock(anyLong(), anyLong(), any(TimeUnit.class))).thenReturn(false);
+
+        assertThatThrownBy(() -> bookingService.createBooking(request, userId))
+                .isInstanceOf(BookingConflictException.class);
+
+        verifyNoInteractions(userRepository, roomRepository, bookingRepository);
+        verify(rLock, never()).unlock();
+    }
+
+    // ---------- getBookingById ----------
 
     @Test
     void getBookingById_shouldReturnBooking_whenUserIsOwner() {
@@ -177,7 +212,7 @@ class BookingServiceTest {
     }
 
     @Test
-    void getBookingById_shouldThrowNotFound_whenUserIsNotOwner() {
+    void getBookingById_shouldThrowNotFound_whenUserIsNotOwnerAndNotStaff() {
         User anotherUser = new User("alice", "alice@example.com", "hash",
                 "Alice", null, "Smith", LocalDate.of(1985, 5, 5), UserRole.USER);
         anotherUser.setId(UUID.randomUUID());
@@ -194,6 +229,26 @@ class BookingServiceTest {
     }
 
     @Test
+    void getBookingById_shouldReturnBooking_whenUserIsNotOwnerButIsStaff() {
+        User anotherUser = new User("alice", "alice@example.com", "hash",
+                "Alice", null, "Smith", LocalDate.of(1985, 5, 5), UserRole.USER);
+        anotherUser.setId(UUID.randomUUID());
+
+        Booking booking = new Booking(anotherUser, existingRoom,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 15), BigDecimal.valueOf(500));
+        UUID bookingId = UUID.randomUUID();
+        booking.setId(bookingId);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+
+        BookingResponse response = bookingService.getBookingById(bookingId, userId, true);
+
+        assertThat(response.id()).isEqualTo(bookingId);
+    }
+
+    // ---------- getBookingsByUser ----------
+
+    @Test
     void getBookingsByUser_shouldReturnUserBookings() {
         Booking booking1 = new Booking(existingUser, existingRoom,
                 LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 15), BigDecimal.valueOf(500));
@@ -204,8 +259,10 @@ class BookingServiceTest {
         List<BookingResponse> result = bookingService.getBookingsByUser(userId);
 
         assertThat(result).hasSize(1);
-        assertThat(result.getFirst().userId()).isEqualTo(userId);
+        assertThat(result.get(0).userId()).isEqualTo(userId);
     }
+
+    // ---------- cancelBooking ----------
 
     @Test
     void cancelBooking_shouldCancelBooking_whenOwnerAndPendingStatus() {
@@ -223,7 +280,7 @@ class BookingServiceTest {
     }
 
     @Test
-    void cancelBooking_shouldThrowConflict_whenNotOwner() {
+    void cancelBooking_shouldThrowConflict_whenNotOwnerAndNotStaff() {
         User anotherUser = new User("alice", "alice@example.com", "hash",
                 "Alice", null, "Smith", LocalDate.of(1985, 5, 5), UserRole.USER);
         anotherUser.setId(UUID.randomUUID());
@@ -239,6 +296,25 @@ class BookingServiceTest {
                 .isInstanceOf(BookingConflictException.class);
 
         verify(bookingRepository, never()).save(any(Booking.class));
+    }
+
+    @Test
+    void cancelBooking_shouldCancel_whenNotOwnerButIsStaff() {
+        User anotherUser = new User("alice", "alice@example.com", "hash",
+                "Alice", null, "Smith", LocalDate.of(1985, 5, 5), UserRole.USER);
+        anotherUser.setId(UUID.randomUUID());
+
+        Booking booking = new Booking(anotherUser, existingRoom,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 15), BigDecimal.valueOf(500));
+        UUID bookingId = UUID.randomUUID();
+        booking.setId(bookingId);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookingResponse response = bookingService.cancelBooking(bookingId, userId, true);
+
+        assertThat(response.bookingStatus()).isEqualTo(BookingStatus.CANCELLED);
     }
 
     @Test
@@ -258,6 +334,67 @@ class BookingServiceTest {
         verify(bookingRepository, never()).save(any(Booking.class));
     }
 
+    // ---------- confirmBooking / completeBooking ----------
 
+    @Test
+    void confirmBooking_shouldSetStatusConfirmed_whenPending() {
+        Booking booking = new Booking(existingUser, existingRoom,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 15), BigDecimal.valueOf(500));
+        UUID bookingId = UUID.randomUUID();
+        booking.setId(bookingId);
 
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookingResponse response = bookingService.confirmBooking(bookingId);
+
+        assertThat(response.bookingStatus()).isEqualTo(BookingStatus.CONFIRMED);
+    }
+
+    @Test
+    void confirmBooking_shouldThrowConflict_whenNotPending() {
+        Booking booking = new Booking(existingUser, existingRoom,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 15), BigDecimal.valueOf(500));
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        UUID bookingId = UUID.randomUUID();
+        booking.setId(bookingId);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+
+        assertThatThrownBy(() -> bookingService.confirmBooking(bookingId))
+                .isInstanceOf(BookingConflictException.class);
+
+        verify(bookingRepository, never()).save(any(Booking.class));
+    }
+
+    @Test
+    void completeBooking_shouldSetStatusCompleted_whenConfirmed() {
+        Booking booking = new Booking(existingUser, existingRoom,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 15), BigDecimal.valueOf(500));
+        booking.setBookingStatus(BookingStatus.CONFIRMED);
+        UUID bookingId = UUID.randomUUID();
+        booking.setId(bookingId);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+        when(bookingRepository.save(any(Booking.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BookingResponse response = bookingService.completeBooking(bookingId);
+
+        assertThat(response.bookingStatus()).isEqualTo(BookingStatus.COMPLETED);
+    }
+
+    @Test
+    void completeBooking_shouldThrowConflict_whenNotConfirmed() {
+        Booking booking = new Booking(existingUser, existingRoom,
+                LocalDate.of(2026, 10, 10), LocalDate.of(2026, 10, 15), BigDecimal.valueOf(500));
+        UUID bookingId = UUID.randomUUID();
+        booking.setId(bookingId);
+
+        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(booking));
+
+        assertThatThrownBy(() -> bookingService.completeBooking(bookingId))
+                .isInstanceOf(BookingConflictException.class);
+
+        verify(bookingRepository, never()).save(any(Booking.class));
+    }
 }

@@ -140,9 +140,12 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true)
-    public Page<BookingResponse> getAllBookings(Pageable pageable) {
-        return bookingRepository.findAll(pageable)
-                .map(BookingResponse::from);
+    public Page<BookingResponse> getAllBookings(Pageable pageable, BookingStatus statusFilter) {
+        Page<Booking> bookings = statusFilter != null
+                ? bookingRepository.findByBookingStatus(statusFilter, pageable)
+                : bookingRepository.findAll(pageable);
+
+        return bookings.map(BookingResponse::from);
     }
 
     @Transactional

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import Pagination from "../../components/Pagination";
 import Toast from "../../components/Toast";
-import { api, ApiError } from "../../api/client";
+import { api, ApiError, collectionFrom, pageInfoFrom } from "../../api/client";
 import { ROLE_LABELS } from "../../utils/roomVisuals";
 
 const ROLE_OPTIONS = ["USER", "MANAGER", "ADMIN"];
@@ -26,8 +26,8 @@ export default function AdminUsersPage() {
     api
       .get(`/users?page=${pageNumber}&size=10&sortBy=username&direction=asc`)
       .then((data) => {
-        setUsers(data.content);
-        setPageInfo({ number: data.number, totalPages: data.totalPages });
+        setUsers(collectionFrom(data));
+        setPageInfo(pageInfoFrom(data));
       })
       .catch(() => setError("Не удалось загрузить пользователей."))
       .finally(() => setLoading(false));

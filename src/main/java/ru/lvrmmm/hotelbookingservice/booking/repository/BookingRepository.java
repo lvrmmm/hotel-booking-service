@@ -1,5 +1,7 @@
 package ru.lvrmmm.hotelbookingservice.booking.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,5 +33,7 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
             @Param("checkOut") LocalDate checkOut,
             @Param("activeStatuses") List<BookingStatus> activeStatuses
             );
+
+    Page<Booking> findByBookingStatus(BookingStatus status, Pageable pageable);
 
 }

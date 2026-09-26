@@ -1,7 +1,6 @@
 package ru.lvrmmm.hotelbookingservice.auth;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -9,7 +8,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import ru.lvrmmm.hotelbookingservice.auth.dto.JwtResponse;
 import ru.lvrmmm.hotelbookingservice.auth.dto.LoginRequest;
 import ru.lvrmmm.hotelbookingservice.security.CustomUserDetailsService;
@@ -27,10 +25,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("AuthService Tests")
 class AuthServiceTest {
 
     @Mock
@@ -48,105 +46,70 @@ class AuthServiceTest {
     @InjectMocks
     private AuthService authService;
 
-    private UserCreateRequest registerRequest;
-    private LoginRequest loginRequest;
-    private User sampleUser;
+    private User existingUser;
     private UserDetailsImpl userDetails;
 
     @BeforeEach
     void setUp() {
-        registerRequest = new UserCreateRequest(
-                "testuser",
-                "test@example.com",
-                "password123",
-                "Иван",
-                "Иванов",
-                "Иванович",
-                LocalDate.of(1990, 1, 1)
+        existingUser = new User("johndoe", "john@example.com", "hashedPassword",
+                "John", null, "Doe", LocalDate.of(1990, 1, 1), UserRole.USER);
+        existingUser.setId(UUID.randomUUID());
+        userDetails = new UserDetailsImpl(existingUser);
+    }
+
+    // ---------- register ----------
+
+    @Test
+    void register_shouldReturnJwtResponse_whenRequestIsValid() {
+        // given
+        UserCreateRequest request = new UserCreateRequest(
+                "johndoe", "john@example.com", "password123",
+                "John", null, "Doe", LocalDate.of(1990, 1, 1)
         );
+        UserResponse userResponse = UserResponse.from(existingUser);
 
-        loginRequest = new LoginRequest("testuser", "password123");
+        when(userService.createUser(request)).thenReturn(userResponse);
+        when(userDetailsService.loadUserByUsername("johndoe")).thenReturn(userDetails);
+        when(jwtTokenProvider.generateToken(userDetails)).thenReturn("fake-jwt-token");
 
-        sampleUser = new User(
-                "testuser",
-                "test@example.com",
-                "hashedPassword",
-                "Иван",
-                "Иванов",
-                "Иванович",
-                LocalDate.of(1990, 1, 1),
-                UserRole.USER
-        );
-        sampleUser.setId(UUID.randomUUID());
+        // when
+        JwtResponse response = authService.register(request);
 
-        userDetails = new UserDetailsImpl(sampleUser);
+        // then
+        assertThat(response.token()).isEqualTo("fake-jwt-token");
+        assertThat(response.user().username()).isEqualTo("johndoe");
+        verify(userService, times(1)).createUser(request);
+    }
+
+    // ---------- login ----------
+
+    @Test
+    void login_shouldReturnJwtResponse_whenCredentialsAreValid() {
+        // given
+        LoginRequest request = new LoginRequest("johndoe", "password123");
+
+        when(userDetailsService.loadUserByUsername("johndoe")).thenReturn(userDetails);
+        when(jwtTokenProvider.generateToken(userDetails)).thenReturn("fake-jwt-token");
+
+        // when
+        JwtResponse response = authService.login(request);
+
+        // then
+        assertThat(response.token()).isEqualTo("fake-jwt-token");
+        assertThat(response.user().username()).isEqualTo("johndoe");
+        verify(authenticationManager, times(1)).authenticate(any());
     }
 
     @Test
-    @DisplayName("register - should create user and return JWT token")
-    void register_Success() {
+    void login_shouldThrowException_whenCredentialsAreInvalid() {
+        // given
+        LoginRequest request = new LoginRequest("johndoe", "wrongPassword");
 
-        UserResponse userResponse = UserResponse.from(sampleUser);
-        String expectedToken = "jwt-token-12345";
+        doThrow(new BadCredentialsException("Bad credentials"))
+                .when(authenticationManager).authenticate(any());
 
-        when(userService.createUser(any(UserCreateRequest.class))).thenReturn(userResponse);
-        when(userDetailsService.loadUserByUsername("testuser")).thenReturn(userDetails);
-        when(jwtTokenProvider.generateToken(userDetails)).thenReturn(expectedToken);
-
-        JwtResponse response = authService.register(registerRequest);
-
-        assertThat(response).isNotNull();
-        assertThat(response.token()).isEqualTo(expectedToken);
-        assertThat(response.user()).isEqualTo(userResponse);
-
-        verify(userService).createUser(registerRequest);
-        verify(userDetailsService).loadUserByUsername("testuser");
-        verify(jwtTokenProvider).generateToken(userDetails);
-    }
-
-    @Test
-    @DisplayName("login - should authenticate user and return JWT token")
-    void login_Success() {
-
-        String expectedToken = "jwt-token-67890";
-
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-                .thenReturn(null);
-        when(userDetailsService.loadUserByUsername("testuser")).thenReturn(userDetails);
-        when(jwtTokenProvider.generateToken(userDetails)).thenReturn(expectedToken);
-
-        JwtResponse response = authService.login(loginRequest);
-
-        assertThat(response).isNotNull();
-        assertThat(response.token()).isEqualTo(expectedToken);
-        assertThat(response.user().username()).isEqualTo("testuser");
-
-        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
-        verify(userDetailsService).loadUserByUsername("testuser");
-        verify(jwtTokenProvider).generateToken(userDetails);
-    }
-
-    @Test
-    @DisplayName("login - should throw BadCredentialsException when password is wrong")
-    void login_WrongPassword_ThrowsException() {
-
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-                .thenThrow(new BadCredentialsException("Bad credentials"));
-
-        assertThatThrownBy(() -> authService.login(loginRequest))
-                .isInstanceOf(BadCredentialsException.class);
-
-        verify(jwtTokenProvider, never()).generateToken(any());
-    }
-
-    @Test
-    @DisplayName("login - should throw BadCredentialsException when user not found")
-    void login_UserNotFound_ThrowsException() {
-
-        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
-                .thenThrow(new BadCredentialsException("Bad credentials"));
-
-        assertThatThrownBy(() -> authService.login(loginRequest))
+        // when / then
+        assertThatThrownBy(() -> authService.login(request))
                 .isInstanceOf(BadCredentialsException.class);
 
         verify(jwtTokenProvider, never()).generateToken(any());

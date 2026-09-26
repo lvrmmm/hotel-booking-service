@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
+import { api, collectionFrom, pageInfoFrom } from "../api/client";
 import RoomCard from "../components/RoomCard";
 import Pagination from "../components/Pagination";
 import { OCCUPANCY_LABELS, COMFORT_LABELS } from "../utils/roomVisuals";
@@ -33,8 +33,8 @@ export default function RoomsPage() {
     api
       .get(`/rooms?page=${pageNumber}&size=9&sortBy=roomNumber&direction=asc`, { auth: false })
       .then((data) => {
-        setRooms(data.content);
-        setPageInfo({ number: data.number, totalPages: data.totalPages });
+        setRooms(collectionFrom(data));
+        setPageInfo(pageInfoFrom(data));
       })
       .catch(() => setError("Не удалось загрузить номера. Попробуйте обновить страницу."))
       .finally(() => setLoading(false));
@@ -50,7 +50,7 @@ export default function RoomsPage() {
         `/rooms/available?checkIn=${checkIn}&checkOut=${checkOut}`,
         { auth: false }
       );
-      setRooms(data);
+      setRooms(collectionFrom(data));
       setSearchMode(true);
       setPageInfo({ number: 0, totalPages: 1 });
     } catch {
@@ -66,7 +66,7 @@ export default function RoomsPage() {
   }
 
   const filteredRooms = useMemo(() => {
-    return rooms.filter((room) => {
+    return collectionFrom(rooms).filter((room) => {
       if (occupancyFilter !== "ALL" && room.occupancyType !== occupancyFilter) return false;
       if (comfortFilter !== "ALL" && room.comfortLevel !== comfortFilter) return false;
       return true;

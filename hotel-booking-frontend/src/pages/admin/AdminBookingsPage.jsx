@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AdminLayout from "../../components/AdminLayout";
 import Pagination from "../../components/Pagination";
 import Toast from "../../components/Toast";
-import { api, ApiError } from "../../api/client";
+import { api, ApiError, collectionFrom, pageInfoFrom } from "../../api/client";
 import { STATUS_LABELS, formatDate, formatPrice } from "../../utils/roomVisuals";
 
 const CANCELLABLE = new Set(["PENDING", "CONFIRMED"]);
@@ -33,8 +33,8 @@ export default function AdminBookingsPage() {
     api
       .get(`/bookings?page=${pageNumber}&size=10&sortBy=createdAt&direction=desc${statusParam}`)
       .then((data) => {
-        setBookings(data.content);
-        setPageInfo({ number: data.number, totalPages: data.totalPages });
+        setBookings(collectionFrom(data));
+        setPageInfo(pageInfoFrom(data));
       })
       .catch(() => setError("Не удалось загрузить бронирования."))
       .finally(() => setLoading(false));
