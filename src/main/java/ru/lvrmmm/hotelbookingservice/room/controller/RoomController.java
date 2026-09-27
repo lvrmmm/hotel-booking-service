@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import ru.lvrmmm.hotelbookingservice.availability.service.RoomAvailabilityService;
 import ru.lvrmmm.hotelbookingservice.booking.dto.response.OccupiedRangeResponse;
 import ru.lvrmmm.hotelbookingservice.common.config.OpenApiConfig;
+import ru.lvrmmm.hotelbookingservice.common.dto.PageResponse;
 import ru.lvrmmm.hotelbookingservice.room.dto.request.CreateRoomRequest;
 import ru.lvrmmm.hotelbookingservice.room.dto.response.RoomResponse;
 import ru.lvrmmm.hotelbookingservice.room.dto.request.UpdateRoomRequest;
@@ -59,7 +60,7 @@ public class RoomController {
     }
 
     @GetMapping
-    public ResponseEntity<Page<RoomResponse>> getAllRooms(
+    public ResponseEntity<PageResponse<RoomResponse>> getAllRooms(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "roomNumber") String sortBy,
@@ -67,7 +68,9 @@ public class RoomController {
     ) {
         Sort sort = Sort.by(Sort.Direction.fromString(direction), sortBy);
         Pageable pageable = PageRequest.of(page, size, sort);
-        return ResponseEntity.ok(roomService.getAllRooms(pageable));
+        Page<RoomResponse> result = roomService.getAllRooms(pageable);
+
+        return ResponseEntity.ok(PageResponse.from(result));
     }
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")

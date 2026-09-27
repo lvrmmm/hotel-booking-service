@@ -5,12 +5,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import ru.lvrmmm.hotelbookingservice.common.config.OpenApiConfig;
+import ru.lvrmmm.hotelbookingservice.common.dto.PageResponse;
 import ru.lvrmmm.hotelbookingservice.security.UserDetailsImpl;
 import ru.lvrmmm.hotelbookingservice.user.dto.request.ChangePasswordRequest;
 import ru.lvrmmm.hotelbookingservice.user.dto.request.UpdateProfileRequest;
@@ -34,14 +36,15 @@ public class UserController {
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping
-    public ResponseEntity<Page<UserResponse>> getAllUsers(
+    public ResponseEntity<PageResponse<UserResponse>> getAllUsers(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "username") String sortBy,
             @RequestParam(defaultValue = "asc") String direction
     ) {
         Sort sort = Sort.by(Sort.Direction.fromString(direction), sortBy);
-        return ResponseEntity.ok(userService.getAllUsers(PageRequest.of(page, size, sort)));
+        Page<UserResponse> result = userService.getAllUsers(PageRequest.of(page, size, sort));
+        return ResponseEntity.ok(PageResponse.from(result));
     }
 
 

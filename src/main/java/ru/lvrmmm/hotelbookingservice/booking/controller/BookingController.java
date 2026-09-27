@@ -18,6 +18,7 @@ import ru.lvrmmm.hotelbookingservice.booking.dto.response.BookingResponse;
 import ru.lvrmmm.hotelbookingservice.booking.entity.BookingStatus;
 import ru.lvrmmm.hotelbookingservice.booking.service.BookingService;
 import ru.lvrmmm.hotelbookingservice.common.config.OpenApiConfig;
+import ru.lvrmmm.hotelbookingservice.common.dto.PageResponse;
 import ru.lvrmmm.hotelbookingservice.security.UserDetailsImpl;
 
 import java.util.List;
@@ -65,7 +66,7 @@ public class BookingController {
 
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
     @GetMapping
-    public ResponseEntity<Page<BookingResponse>> getAllBookings(
+    public ResponseEntity<PageResponse<BookingResponse>> getAllBookings(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -74,7 +75,8 @@ public class BookingController {
     ) {
         Sort sort = Sort.by(Sort.Direction.fromString(direction), sortBy);
         Pageable pageable = PageRequest.of(page, size, sort);
-        return ResponseEntity.ok(bookingService.getAllBookings(pageable, status));
+        Page<BookingResponse> result = bookingService.getAllBookings(pageable, status);
+        return ResponseEntity.ok(PageResponse.from(result));
     }
 
     @PatchMapping("/{id}/cancel")
